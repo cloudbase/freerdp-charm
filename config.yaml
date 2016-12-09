@@ -1,0 +1,67 @@
+options:
+  debug:
+    type: boolean
+    default: False
+    description: "Enable debug logging"
+  verbose:
+    type: boolean
+    default: False
+    description: "Enable verbose logging"
+  installer-url:
+    type: string
+    description: |
+      Overwrite default installer location.
+      If you use this option, you may enable file integrity checking
+      by specifying an md5sum at the end of the URL as follows:
+        https://example.com/installer.msi#md5=<hash>
+  tenant-username:
+    type: string
+    default: "freerdp"
+    description: |
+      Tenant username required for keystone.
+  http-port:
+    type: int
+    default: 8000
+    description: |
+      Set non-SSL listener port. If omitted, no listener will be started
+  https-port:
+    type: int
+    default: 4430
+    description: |
+      Set SSL listener port. If omitted, no SSL listener will be started.
+  http-listening-address:
+    type: string
+    default: "0.0.0.0"
+    description: "Http listening address"
+  https-listening-address:
+    type: string
+    default: "0.0.0.0"
+    description: "Https listening address"
+  redirect-http-to-https:
+    type: boolean
+    default: False
+    description: |
+      Redirect permanently to https
+      If listeners for both SSL and non-SSL are configured, enabling this,
+      will answer all requests on the non-SSL port with a HTTP redirect response
+      pointing to the SSL port.
+  vcredist-url:
+    type: string
+    description: |
+      C++ Redistributable Packages install run-time components that are required
+      to run C++ applications. It is required when the installer-url is an msi.
+  change-hostname:
+    default: False
+    type: boolean
+    description: |
+      The hostname set inside the newly spawned machine is usually the same as
+      the name of the instance being spawned. In cases where the instance name
+      is larger then 15 characters (maximum size for windows NetBios names), the
+      instance name gets truncated to the first 15 characters. This creates a problem,
+      as hostnames in active directory, for example, are very important. Having more
+      then one machine with the same hostname try to join the same domain, will
+      create trust issues.
+      This option allows changing the hostname of the current running system to a
+      combination of the first 14 (or less, depending on how many digits the unit number has)
+      characters of the charm name and the unit number. While this is not infallible,
+      It does have less of a chance of creating hostname conflicts.
