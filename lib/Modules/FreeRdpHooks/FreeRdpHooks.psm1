@@ -24,36 +24,33 @@ Import-Module JujuHooks
 Import-Module OpenStackCommon
 
 function Get-Vcredist {
-    Write-JujuWarning "Getting vcredist."
-    $vcredistUrl = Get-JujuCharmConfig -Scope "vcredist-url"
-    if (!$vcredistUrl) {
-        try {
-            Write-JujuWarning "Trying to get vcredist Juju resource"
-            $vcredistPath = Get-JujuResource -Resource "vcredist-x64"
+    BEGIN {
+        $resourcesSupport = (Get-Command resource-get.exe -ErrorAction SilentlyContinue) -ne $null
+    }
+    PROCESS {
+        Write-JujuWarning "Getting vcredist."
+        if ($resourcesSupport) {
+            $vcredistPath = Start-ExecuteWithRetry -ScriptBlock { Get-JujuResource -Resource "vcredist-x64" } `
+                                                   -RetryMessage "Failed to get vcredist resource. Retrying..."
             $bytes = Get-Content $vcredistPath -TotalCount 31 -Encoding Byte
             $str = [string]::join("", [char[]]$bytes)
-            if ($str -eq $DEFAULT_JUJU_RESOURCE_CONTENT) {
-                Throw "Cannot use the default Juju resource for 'vcredist-x64'. Manually attach it or set the config option 'vcredist-url'."
+            if ($str -ne $DEFAULT_JUJU_RESOURCE_CONTENT) {
+                return $vcredistPath
             }
-            return $vcredistPath
-        } catch {
-            Write-JujuWarning "Failed downloading vcredist Juju resource: $_"
-            Write-JujuWarning "Falling back to file download"
+            Write-JujuWarning "Cannot use the default Juju resource for vcredist-x64. Falling back to using download URL."
         }
-        Write-JujuWarning "Using default download URL for vcredist-x64: $FREE_RDP_VCREDIST"
-        $url = $FREE_RDP_VCREDIST
-    } else {
-        Write-JujuInfo ("'vcredist-url' config option is set to: '{0}'" -f $vcredistUrl)
-        $url = $vcredistUrl
+        $vcredistUrl = Get-JujuCharmConfig -Scope "vcredist-url"
+        if(!$vcredistUrl) {
+            Write-JujuWarning "Using default download URL for vcredist-x64: $FREE_RDP_VCREDIST"
+            $vcredistUrl = $FREE_RDP_VCREDIST
+        }
+        $file = ([System.Uri]$vcredistUrl).Segments[-1]
+        $vcredistPath = Join-Path $env:TEMP $file
+        Start-ExecuteWithRetry {
+            Invoke-FastWebRequest -Uri $vcredistUrl -OutFile $vcredistPath
+        } -RetryMessage "Downloading vcredist failed. Retrying..."
+        return $vcredistPath
     }
-
-    $file = ([System.Uri]$url).Segments[-1]
-    $tempDownloadFile = Join-Path $env:TEMP $file
-    Start-ExecuteWithRetry {
-        Invoke-FastWebRequest -Uri $url -OutFile $tempDownloadFile
-    } -RetryMessage "Downloading vcredist failed. Retrying..."
-
-    return $tempDownloadFile
 }
 
 function Install-Vcredist {
