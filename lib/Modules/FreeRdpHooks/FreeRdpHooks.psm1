@@ -30,11 +30,17 @@ function Get-Vcredist {
         try {
             Write-JujuWarning "Trying to get vcredist Juju resource"
             $vcredistPath = Get-JujuResource -Resource "vcredist-x64"
+            $bytes = Get-Content $vcredistPath -TotalCount 31 -Encoding Byte
+            $str = [string]::join("", [char[]]$bytes)
+            if ($str -eq $DEFAULT_JUJU_RESOURCE_CONTENT) {
+                Throw "Cannot use the default Juju resource for 'vcredist-x64'. Manually attach it or set the config option 'vcredist-url'."
+            }
             return $vcredistPath
         } catch {
-            Write-JujuWarning "Failed downloading vcredist resource: $_"
+            Write-JujuWarning "Failed downloading vcredist Juju resource: $_"
             Write-JujuWarning "Falling back to file download"
         }
+        Write-JujuWarning "Using default download URL for vcredist-x64: $FREE_RDP_VCREDIST"
         $url = $FREE_RDP_VCREDIST
     } else {
         Write-JujuInfo ("'vcredist-url' config option is set to: '{0}'" -f $vcredistUrl)

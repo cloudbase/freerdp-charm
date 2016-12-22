@@ -22,6 +22,7 @@ Import-Module JujuHelper
 
 $COMPUTERNAME = [System.Net.Dns]::GetHostName()
 $SUPPORTED_OPENSTACK_RELEASES = @('liberty', 'mitaka', 'newton')
+$DEFAULT_JUJU_RESOURCE_CONTENT = "Cloudbase default Juju resource"
 
 # Nova constants
 $NOVA_PRODUCT = @{
