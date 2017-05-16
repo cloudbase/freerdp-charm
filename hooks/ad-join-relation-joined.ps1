@@ -15,31 +15,21 @@
 #
 $ErrorActionPreference = "Stop"
 
-Import-Module OpenStackCommon
 Import-Module JujuLogging
-Import-Module JujuUtils
 
-
-function Get-AdUserAndGroup {
-    $creds = @{
-        "freerdp"=@(
-            "Domain Admins", "Users"
-        );
-    }
-    $ret = Get-MarshaledObject $creds
-    return $ret
-}
 
 try {
     Import-Module JujuHooks
-    Import-Module ADCharmUtils
+    Import-Module JujuUtils
 
-    $adUser = Get-AdUserAndGroup
-    $settings = @{
-        'users' = $adUser;
-        'computername' = $COMPUTERNAME;
+    $users = @{
+        "free-rdp" = @("Domain Admins", "Users")
     }
-
+    $marshaledUsers = Get-MarshaledObject $users
+    $settings = @{
+        'users' = $marshaledUsers
+        'computername' = $env:COMPUTERNAME
+    }
     $rids = Get-JujuRelationIds -Relation "ad-join"
     foreach ($rid in $rids) {
         Set-JujuRelation -RelationId $rid -Settings $settings
