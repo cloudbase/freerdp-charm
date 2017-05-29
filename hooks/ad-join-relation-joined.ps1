@@ -28,7 +28,7 @@ try {
     $marshaledUsers = Get-MarshaledObject $users
     $settings = @{
         'users' = $marshaledUsers
-        'computername' = $env:COMPUTERNAME
+        'computername' = [System.Net.Dns]::GetHostName()
     }
     $rids = Get-JujuRelationIds -Relation "ad-join"
     foreach ($rid in $rids) {
