@@ -333,6 +333,8 @@ function Invoke-ConfigChangedHook {
                     -StartupType Automatic `
                     -Credential $ctx["adcredentials"][0]["pscredentials"] `
                     -Confirm:$false
+        Start-ExternalCommand { sc.exe failure $FREE_RDP_SERVICE_NAME reset=5 actions=restart/1000 }
+        Start-ExternalCommand { sc.exe failureflag $FREE_RDP_SERVICE_NAME 1 }
     }
     Grant-PrivilegesOnDomainUser $ctx["adcredentials"][0]["username"]
     Restart-Service $FREE_RDP_SERVICE_NAME
