@@ -24,33 +24,26 @@ Import-Module JujuHooks
 Import-Module OpenStackCommon
 
 function Get-Vcredist {
-    BEGIN {
+    Write-JujuWarning "Getting vcredist."
+    $vcredistUrl = Get-JujuCharmConfig -Scope "vcredist-url"
+    if(!$vcredistUrl) {
         $resourcesSupport = (Get-Command resource-get.exe -ErrorAction SilentlyContinue) -ne $null
-    }
-    PROCESS {
-        Write-JujuWarning "Getting vcredist."
-        if ($resourcesSupport) {
+        if($resourcesSupport) {
+            Write-JujuWarning "Getting Juju resource for vcredist-x64"
             $vcredistPath = Start-ExecuteWithRetry -ScriptBlock { Get-JujuResource -Resource "vcredist-x64" } `
                                                    -RetryMessage "Failed to get vcredist resource. Retrying..."
-            $bytes = Get-Content $vcredistPath -TotalCount 31 -Encoding Byte
-            $str = [string]::join("", [char[]]$bytes)
-            if ($str -ne $DEFAULT_JUJU_RESOURCE_CONTENT) {
-                return $vcredistPath
-            }
-            Write-JujuWarning "Cannot use the default Juju resource for vcredist-x64. Falling back to using download URL."
+            return $vcredistPath
         }
-        $vcredistUrl = Get-JujuCharmConfig -Scope "vcredist-url"
-        if(!$vcredistUrl) {
-            Write-JujuWarning "Using default download URL for vcredist-x64: $FREE_RDP_VCREDIST"
-            $vcredistUrl = $FREE_RDP_VCREDIST
-        }
-        $file = ([System.Uri]$vcredistUrl).Segments[-1]
-        $vcredistPath = Join-Path $env:TEMP $file
-        Start-ExecuteWithRetry {
-            Invoke-FastWebRequest -Uri $vcredistUrl -OutFile $vcredistPath
-        } -RetryMessage "Downloading vcredist failed. Retrying..."
-        return $vcredistPath
+        # Fall back to download URL
+        $vcredistUrl = $FREE_RDP_VCREDIST
     }
+    Write-JujuWarning "Downloading vcredist-x64 from: $vcredistUrl"
+    $file = ([System.Uri]$vcredistUrl).Segments[-1]
+    $vcredistPath = Join-Path $env:TEMP $file
+    Start-ExecuteWithRetry {
+        Invoke-FastWebRequest -Uri $vcredistUrl -OutFile $vcredistPath | Out-Null
+    } -RetryMessage "Downloading vcredist failed. Retrying..."
+    return $vcredistPath
 }
 
 function Install-Vcredist {
@@ -73,25 +66,22 @@ function Get-FreeRdpInstaller {
         if (Get-IsNanoServer) {
             $installerType = 'zip'
         }
-
-        try {
-            Write-JujuWarning "Trying to get installer Juju resource"
-            $installerPath = Get-JujuResource -Resource "free-rdp-${installerType}-installer"
+        $resourcesSupport = (Get-Command resource-get.exe -ErrorAction SilentlyContinue) -ne $null
+        if($resourcesSupport) {
+            Write-JujuWarning "Getting Juju resource for vcredist-x64"
+            $installerPath = Start-ExecuteWithRetry -ScriptBlock { Get-JujuResource -Resource "free-rdp-${installerType}-installer" } `
+                                                   -RetryMessage "Failed to get Free RDP $installerType installer resource. Retrying..."
             return $installerPath
-        } catch {
-            Write-JujuWarning "Failed downloading free-rdp installer resource: $_"
-            Write-JujuWarning "Falling back to file download"
         }
-
-        $url = $FREE_RDP_INSTALLER[$installerType]
-    } else {
-        Write-JujuInfo ("'installer-url' config option is set to: {0}" -f $installerUrl)
-        $url = $installerUrl
+        # Fall back to download URL
+        $installerUrl = $FREE_RDP_INSTALLER[$installerType]
     }
-
-    $file = ([System.Uri]$url).Segments[-1]
+    Write-JujuWarning "Downloading Free RDP installer from: $installerUrl"
+    $file = ([System.Uri]$installerUrl).Segments[-1]
     $tempDownloadFile = Join-Path $env:TEMP $file
-    $out = Invoke-FastWebRequest -Uri $url -OutFile $tempDownloadFile
+    Start-ExecuteWithRetry {
+        Invoke-FastWebRequest -Uri $installerUrl -OutFile $tempDownloadFile | Out-Null
+    } -RetryMessage "Downloading the Free RDP installer failed. Retrying..."
     return $tempDownloadFile
 }
 
@@ -198,15 +188,17 @@ function Get-KeystoneContext {
         return @{}
     }
 
-    if (!$ctxt["api_version"] -or $ctxt["api_version"] -eq 2) {
-        $ctxt["api_version"] = "2.0"
+    if ($ctxt["api_version"] -eq 2) {
+        $ctxt["keystone_api_version"] = "v2.0"
+    } else {
+        $ctxt["keystone_api_version"] = "v{0}" -f @($ctxt['api_version'])
     }
 
-    $authurl = "{0}://{1}:{2}/v{3}/" -f @(
+    $authurl = "{0}://{1}:{2}/{3}/" -f @(
                             $ctxt['credentials_protocol'],
                             $ctxt['credentials_host'],
                             $ctxt['credentials_port'],
-                            $ctxt['api_version']
+                            $ctxt['keystone_api_version']
                         )
 
     return @{
@@ -214,6 +206,7 @@ function Get-KeystoneContext {
         'tenant_name' = $ctxt['credentials_project']
         'tenant_username' = $ctxt['credentials_username']
         'tenant_password' = $ctxt['credentials_password']
+        'keystone_api_version' = $ctxt['keystone_api_version']
     }
 }
 
@@ -329,19 +322,21 @@ function Invoke-ConfigChangedHook {
     }
 
     $service = Get-ManagementObject -Class Win32_Service -Filter "name='$FREE_RDP_SERVICE_NAME'"
+    $ctx = Get-ActiveDirectoryContext
     if (!$service) {
         Write-JujuWarning ("Creating service {0}" -f @($FREE_RDP_SERVICE_NAME))
         $wsgateExe = Join-Path $FREE_RDP_INSTALL_DIR "Binaries\wsgate.exe"
         $binaryPath = "`"{0}`" --config `"{1}`"" -f @($wsgateExe, $services['free-rdp']['config'])
 
-        $ctx = Get-ActiveDirectoryContext
         New-Service -Name $FREE_RDP_SERVICE_NAME -BinaryPath $binaryPath `
                     -DisplayName "FreeRDP-WebConnect" `
                     -StartupType Automatic `
                     -Credential $ctx["adcredentials"][0]["pscredentials"] `
                     -Confirm:$false
+        Start-ExternalCommand { sc.exe failure $FREE_RDP_SERVICE_NAME reset=5 actions=restart/1000 }
+        Start-ExternalCommand { sc.exe failureflag $FREE_RDP_SERVICE_NAME 1 }
     }
-
+    Grant-PrivilegesOnDomainUser $ctx["adcredentials"][0]["username"]
     Restart-Service $FREE_RDP_SERVICE_NAME
 
     Write-JujuWarning "Open firewall on http and https ports"

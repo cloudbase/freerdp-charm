@@ -8,7 +8,7 @@ resources:
   vcredist-x64:
     type: file
     filename: vcredist-x64.exe
-    description: Visual C++ Redistributable
+    description: Visual C++ Redistributable Packages for Visual Studio 2013 x64 installer
   free-rdp-msi-installer:
     type: file
     filename: free-rdp.msi

@@ -28,8 +28,6 @@ try {
             Write-JujuInfo "Requested credentials have not yet been sent by AD"
             return
         }
-
-        Grant-PrivilegesOnDomainUser $adCtx["adcredentials"][0]["username"]
         Invoke-ConfigChangedHook
     }
 } catch {

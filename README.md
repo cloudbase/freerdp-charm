@@ -21,5 +21,3 @@ Custom URL for FreeRDP dependency can be configured by the operator of the charm
     juju config installer-url=http://example.com/FreeRDPWebConnect.msi
 
 You can browse to `http://ip-address:port` in order to use it separately from OpenStack.
-
-**NOTE**: The charm has usable default resources for free RDP msi and zip installers. The default resource for `vcredist-x64` is not usable and it must be manually given at deploy time. The Visual C++ Redistributable x64 installer can be obtained from the following [url](https://www.microsoft.com/en-us/download/details.aspx?id=40784).
