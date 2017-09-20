@@ -20,6 +20,10 @@ resources:
 tags:
   - openstack
   - windows
+  - rdp
+  - console
+  - web
+  - proxy
 series:
   - win2012
   - win2012r2
