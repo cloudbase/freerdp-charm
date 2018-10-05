@@ -174,6 +174,7 @@ function Get-CharmConfigContext {
 
 function Get-KeystoneContext {
     $requiredCtx = @{
+        "credentials_project_id" = $null
         "credentials_project" = $null
         "credentials_host" = $null
         "credentials_port" = $null
@@ -194,7 +195,7 @@ function Get-KeystoneContext {
         $ctxt["keystone_api_version"] = "v{0}" -f @($ctxt['api_version'])
     }
 
-    $authurl = "{0}://{1}:{2}/{3}/" -f @(
+    $authurl = "{0}://{1}:{2}/{3}" -f @(
                             $ctxt['credentials_protocol'],
                             $ctxt['credentials_host'],
                             $ctxt['credentials_port'],
@@ -203,9 +204,9 @@ function Get-KeystoneContext {
 
     return @{
         'auth_url' = $authurl
-        'tenant_name' = $ctxt['credentials_project']
-        'tenant_username' = $ctxt['credentials_username']
-        'tenant_password' = $ctxt['credentials_password']
+        'project_id' = $ctxt['credentials_project_id']
+        'project_username' = $ctxt['credentials_username']
+        'project_password' = $ctxt['credentials_password']
         'keystone_api_version' = $ctxt['keystone_api_version']
     }
 }
