@@ -31,6 +31,7 @@ series:
   - win2012hvr2
   - win2016
   - win2016nano
+  - win2019
 requires:
   ad-join:
     interface: ad-join
